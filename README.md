@@ -48,8 +48,8 @@ LinguaPop is easy to install via the pre-built releases or from source.
 Requires [Node.js](https://nodejs.org/) v18+.
 
 ```bash
-git clone https://github.com/kkonstantin08/translator.git
-cd translator
+git clone https://github.com/kkonstantin08/linguapop-ai.git
+cd linguapop-ai
 npm install
 npm run build
 ```
