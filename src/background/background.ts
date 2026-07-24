@@ -21,7 +21,6 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "open-pdf",
     title: "Открыть в LinguaPop PDF",
-    targetUrlPatterns: ["*://*/*.pdf", "*://*/*.PDF"],
     contexts: ["link"],
   });
 });
