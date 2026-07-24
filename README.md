@@ -7,7 +7,7 @@
 </div>
 
 <p align="center">
-  <strong>An AI-powered Chromium extension for seamless translation, text rewriting, and PDF localization using your own LLM keys.</strong>
+  <strong>An AI-powered Chromium extension for seamless translation and text rewriting using your own LLM keys.</strong>
 </p>
 
 <p align="center">
