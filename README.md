@@ -27,7 +27,6 @@ Most translation extensions rely on standard neural machine translation (like Go
 * **🤖 Bring Your Own API:** Natively supports OpenAI (ChatGPT), Anthropic (Claude), Google (Gemini), and Mistral. You control the costs and privacy.
 * **⚡ Smart Local Fallback:** If your API key runs out or drops, LinguaPop automatically falls back to Chrome's local, built-in AI models (Nano) to ensure you never lose translation capabilities.
 * **✍️ Inline AI Writing Assistant:** Focus any text input on the web (emails, chats, comments). Click the floating LinguaPop button to rewrite your draft into fluent, native-sounding English. Choose tones like *Formal*, *Friendly*, *Shorter*, or *Grammar-only*.
-* **📄 Built-in PDF Localization:** Right-click any local or remote PDF link and select "Open in LinguaPop PDF" to render and translate documents natively.
 * **🌊 Waterfall Page Translation:** Translate entire web pages with a beautiful top-to-bottom streaming effect. The extension intelligently batches paragraphs and replaces them live as responses arrive.
 * **🗄️ Lightning-Fast LRU Cache:** 100% local `chrome.storage` cache ensures that repeated phrases load instantly (0ms) and save your API tokens.
 

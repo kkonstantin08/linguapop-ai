@@ -22,7 +22,6 @@ export default defineConfig({
       input: {
         popup: path.resolve(__dirname, "popup.html"),
         options: path.resolve(__dirname, "options.html"),
-        pdf: path.resolve(__dirname, "pdf.html"),
         background: path.resolve(__dirname, "src/background/background.ts"),
         content: path.resolve(__dirname, "src/content/content.ts"),
       },

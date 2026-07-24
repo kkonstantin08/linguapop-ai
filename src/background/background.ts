@@ -18,11 +18,6 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Вернуть оригинал страницы",
     contexts: ["page"],
   });
-  chrome.contextMenus.create({
-    id: "open-pdf",
-    title: "Открыть в LinguaPop PDF",
-    contexts: ["link"],
-  });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -47,8 +42,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs
       .sendMessage(tab.id, { type: "RESTORE_PAGE" })
       .catch(() => {});
-  } else if (info.menuItemId === "open-pdf" && info.linkUrl) {
-    chrome.tabs.create({ url: chrome.runtime.getURL(`pdf.html?file=${encodeURIComponent(info.linkUrl)}`) });
   }
 });
 
