@@ -1566,6 +1566,15 @@ document.addEventListener("focusin", async (e) => {
     if (rect.width > 100 && rect.height >= 20) {
       const excluded = await checkExcluded();
       if (excluded) return;
+
+      const settings = await new Promise<any>((resolve) => {
+        if (!chrome?.runtime?.id) { resolve(null); return; }
+        try {
+          chrome.storage.sync.get("settings", (res) => resolve(res.settings));
+        } catch { resolve(null); }
+      });
+      
+      if (settings && settings.assistantEnabled === false) return;
       
       // Make sure the element is still focused after async check
       if (document.activeElement === target) {

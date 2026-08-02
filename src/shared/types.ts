@@ -16,6 +16,7 @@ export interface Settings {
   excludedSites: string[];
   theme: "light" | "dark" | "system";
   accentColor: "pink" | "blue" | "green" | "purple" | "orange";
+  assistantEnabled: boolean;
 }
 
 export interface HistoryEntry {

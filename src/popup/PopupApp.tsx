@@ -217,19 +217,31 @@ export default function PopupApp() {
             </option>
           ))}
         </select>
-        <label className="lp-toggle">
-          <input
-            type="checkbox"
-            checked={settings.llmEnabled}
-            onChange={async (e) => {
-              const updated = { ...settings, llmEnabled: e.target.checked };
-              setLocalSettings(updated);
-              await setSettings(updated);
-            }}
-          />
-          LLM
-        </label>
-      </div>
+          <label className="lp-toggle" title="Включить/выключить ИИ-перевод">
+            <input
+              type="checkbox"
+              checked={settings.llmEnabled}
+              onChange={async (e) => {
+                const updated = { ...settings, llmEnabled: e.target.checked };
+                setLocalSettings(updated);
+                await setSettings(updated);
+              }}
+            />
+            LLM
+          </label>
+          <label className="lp-toggle" title="Включить/выключить плавающего помощника">
+            <input
+              type="checkbox"
+              checked={settings.assistantEnabled}
+              onChange={async (e) => {
+                const updated = { ...settings, assistantEnabled: e.target.checked };
+                setLocalSettings(updated);
+                await setSettings(updated);
+              }}
+            />
+            Помощник
+          </label>
+        </div>
 
       <button
         className="lp-primary-btn"

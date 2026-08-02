@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS: Settings = {
   libreTranslateEndpoint: "",
   excludedSites: [],
   theme: "system",
+  accentColor: "pink",
+  assistantEnabled: true,
 };
 
 export async function getSettings(): Promise<Settings> {
