@@ -123,15 +123,18 @@ export default function PopupApp() {
     chrome.runtime.openOptionsPage();
   }, []);
 
-  const cycleTheme = useCallback(async () => {
-    if (!settings) return;
-    const theme = settings.theme;
-    const next =
-      theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
-    setLocalSettings({ ...settings, theme: next });
-    await setSettings({ ...settings, theme: next });
-    applyThemeClass(next);
-  }, [settings]);
+  const cycleTheme = useCallback(() => {
+    setLocalSettings((prev) => {
+      if (!prev) return prev;
+      const theme = prev.theme;
+      const next =
+        theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+      const updated = { ...prev, theme: next };
+      setSettings(updated).catch(() => {});
+      applyThemeClass(next);
+      return updated;
+    });
+  }, []);
 
   if (!settings) return null;
 
@@ -196,19 +199,23 @@ export default function PopupApp() {
       <div className="lp-options-row">
         <select
           value={settings.providers[settings.activeProvider].selectedModel}
-          onChange={async (e) => {
-            const updated = {
-              ...settings,
-              providers: {
-                ...settings.providers,
-                [settings.activeProvider]: {
-                  ...settings.providers[settings.activeProvider],
-                  selectedModel: e.target.value
+          onChange={(e) => {
+            const val = e.target.value;
+            setLocalSettings((prev) => {
+              if (!prev) return prev;
+              const updated = {
+                ...prev,
+                providers: {
+                  ...prev.providers,
+                  [prev.activeProvider]: {
+                    ...prev.providers[prev.activeProvider],
+                    selectedModel: val
+                  }
                 }
-              }
-            };
-            setLocalSettings(updated);
-            await setSettings(updated);
+              };
+              setSettings(updated).catch(() => {});
+              return updated;
+            });
           }}
         >
           {currentProviderModels.map((m) => (
@@ -221,10 +228,14 @@ export default function PopupApp() {
             <input
               type="checkbox"
               checked={settings.llmEnabled}
-              onChange={async (e) => {
-                const updated = { ...settings, llmEnabled: e.target.checked };
-                setLocalSettings(updated);
-                await setSettings(updated);
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setLocalSettings((prev) => {
+                  if (!prev) return prev;
+                  const updated = { ...prev, llmEnabled: checked };
+                  setSettings(updated).catch(() => {});
+                  return updated;
+                });
               }}
             />
             LLM
@@ -233,10 +244,14 @@ export default function PopupApp() {
             <input
               type="checkbox"
               checked={settings.assistantEnabled}
-              onChange={async (e) => {
-                const updated = { ...settings, assistantEnabled: e.target.checked };
-                setLocalSettings(updated);
-                await setSettings(updated);
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setLocalSettings((prev) => {
+                  if (!prev) return prev;
+                  const updated = { ...prev, assistantEnabled: checked };
+                  setSettings(updated).catch(() => {});
+                  return updated;
+                });
               }}
             />
             Помощник

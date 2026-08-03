@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSettings, setSettings, getHistory, clearHistory } from "../shared/storage";
-import { testApiKey } from "../shared/llm/client";
 import { clearTranslationCache } from "../shared/cache";
 import {
   PROVIDERS,
@@ -59,7 +58,10 @@ export default function OptionsApp() {
       getSettings().then((s) => applyThemeClass(s.theme));
     };
     mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    return () => {
+      mq.removeEventListener("change", handler);
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
   }, []);
 
   const triggerSave = useCallback((updatedSettings: Settings) => {
@@ -73,31 +75,35 @@ export default function OptionsApp() {
 
   const updateSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
-      if (!settings) return;
-      const updated = { ...settings, [key]: value };
-      setLocalSettings(updated);
-      triggerSave(updated);
+      setLocalSettings(prev => {
+        if (!prev) return prev;
+        const updated = { ...prev, [key]: value };
+        triggerSave(updated);
+        return updated;
+      });
     },
-    [settings, triggerSave],
+    [triggerSave],
   );
 
   const updateProviderSetting = useCallback(
     (provider: ProviderID, key: "apiKeys" | "selectedModel", value: string) => {
-      if (!settings) return;
-      const updated = {
-        ...settings,
-        providers: {
-          ...settings.providers,
-          [provider]: {
-            ...settings.providers[provider],
-            [key]: value
+      setLocalSettings(prev => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          providers: {
+            ...prev.providers,
+            [provider]: {
+              ...prev.providers[provider],
+              [key]: value
+            }
           }
-        }
-      };
-      setLocalSettings(updated);
-      triggerSave(updated);
+        };
+        triggerSave(updated);
+        return updated;
+      });
     },
-    [settings, triggerSave],
+    [triggerSave],
   );
 
   const handleCheckKeys = useCallback(async () => {
@@ -113,8 +119,15 @@ export default function OptionsApp() {
 
     for (const key of keys) {
       try {
-        await testApiKey(provider, key, settings.providers[provider].selectedModel);
-        setKeyStatuses(prev => ({ ...prev, [key]: "valid" }));
+        const response = await chrome.runtime.sendMessage({
+          type: "TEST_API_KEY",
+          data: { provider, apiKey: key, model: settings.providers[provider].selectedModel }
+        });
+        if (response && response.success) {
+          setKeyStatuses(prev => ({ ...prev, [key]: "valid" }));
+        } else {
+          setKeyStatuses(prev => ({ ...prev, [key]: "invalid" }));
+        }
       } catch {
         setKeyStatuses(prev => ({ ...prev, [key]: "invalid" }));
       }
@@ -155,7 +168,7 @@ export default function OptionsApp() {
         const parsed = JSON.parse(text);
         if (parsed && typeof parsed === "object") {
           await setSettings(parsed);
-          setLocalSettings({ ...settings, ...parsed });
+          setLocalSettings(prev => prev ? { ...prev, ...parsed } : parsed);
           alert("Настройки успешно импортированы!");
         }
       } catch (err) {

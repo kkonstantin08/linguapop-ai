@@ -67,7 +67,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.type === "TEST_API_KEY") {
-    testApiKey()
+    const { provider, apiKey, model } = request.data || {};
+    testApiKey(provider, apiKey, model)
       .then(() => sendResponse({ success: true }))
       .catch((error: Error) => {
         console.error("[LinguaPop] API key test error:", error.message);
@@ -105,15 +106,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     fetch(url, { referrerPolicy: "no-referrer" })
       .then(async (res) => {
         if (!res.ok) throw new Error("TTS fetch failed");
-        const buffer = await res.arrayBuffer();
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        for (let i = 0; i < bytes.byteLength; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        const dataUrl = `data:audio/mpeg;base64,${base64}`;
-        sendResponse({ success: true, dataUrl });
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          sendResponse({ success: true, dataUrl: reader.result });
+        };
+        reader.onerror = () => {
+          console.error("[LinguaPop] TTS FileReader error");
+          sendResponse({ success: false });
+        };
+        reader.readAsDataURL(blob);
       })
       .catch((err) => {
         console.error("[LinguaPop] TTS error:", err);

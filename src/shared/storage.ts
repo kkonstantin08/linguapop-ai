@@ -21,15 +21,23 @@ const DEFAULT_SETTINGS: Settings = {
 
 export async function getSettings(): Promise<Settings> {
   const result = await chrome.storage.sync.get("settings");
-  // Merge recursively for providers
   const stored = result.settings || {};
+  
+  const mergedProviders = { ...DEFAULT_SETTINGS.providers };
+  if (stored.providers) {
+    for (const [key, value] of Object.entries(stored.providers)) {
+      const providerKey = key as keyof typeof mergedProviders;
+      mergedProviders[providerKey] = {
+        ...(mergedProviders[providerKey] || {}),
+        ...(value as any)
+      };
+    }
+  }
+
   return {
     ...DEFAULT_SETTINGS,
     ...stored,
-    providers: {
-      ...DEFAULT_SETTINGS.providers,
-      ...(stored.providers || {})
-    }
+    providers: mergedProviders
   } as Settings;
 }
 
@@ -52,7 +60,7 @@ export async function getHistory(): Promise<HistoryEntry[]> {
   return result.writingHistory || [];
 }
 
-export async function addHistoryEntry(entry: HistoryEntry): Promise<void> {
+async function _addHistoryEntry(entry: HistoryEntry): Promise<void> {
   const history = await getHistory();
   history.unshift(entry); // Add to the beginning
   // Keep only the last 100 entries
@@ -60,6 +68,16 @@ export async function addHistoryEntry(entry: HistoryEntry): Promise<void> {
     history.length = 100;
   }
   await chrome.storage.local.set({ writingHistory: history });
+}
+
+export async function addHistoryEntry(entry: HistoryEntry): Promise<void> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    await navigator.locks.request("linguapop_history_lock", async () => {
+      await _addHistoryEntry(entry);
+    });
+  } else {
+    await _addHistoryEntry(entry);
+  }
 }
 
 export async function clearHistory(): Promise<void> {

@@ -26,12 +26,6 @@ function updateContentAccentColor() {
     if (host) {
       host.style.setProperty("--lp-primary", currentAccentColor);
     }
-
-    // Apply to writing assistant FAB if it exists
-    const fab = document.querySelector(".lp-fab") as HTMLElement;
-    if (fab) {
-      fab.style.setProperty("--lp-primary", currentAccentColor);
-    }
   });
 }
 
@@ -183,7 +177,7 @@ const POPUP_CSS = `
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(223,55,167,.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   transition: transform .1s, background .15s;
   font-family: inherit;
 }
@@ -287,6 +281,10 @@ const POPUP_CSS = `
 let currentHost: HTMLElement | null = null;
 let currentFab: HTMLElement | null = null;
 let isTranslatingPage = false;
+let activePopupRequestId = 0;
+let activeRewriteRequestId = 0;
+let dragMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+let dragMouseUpHandler: ((e: MouseEvent) => void) | null = null;
 const originalTexts = new WeakMap<Text, string>();
 const translatedNodes = new WeakSet<Text>();
 
@@ -383,6 +381,14 @@ function hidePopup() {
     host.remove();
     currentHost = null;
     stopSpeaking();
+  }
+  if (dragMouseMoveHandler) {
+    document.removeEventListener("mousemove", dragMouseMoveHandler);
+    dragMouseMoveHandler = null;
+  }
+  if (dragMouseUpHandler) {
+    document.removeEventListener("mouseup", dragMouseUpHandler);
+    dragMouseUpHandler = null;
   }
 }
 
@@ -521,6 +527,16 @@ function eventHitsPopupOrFab(event: Event): boolean {
     if (target && currentFab.contains(target)) return true;
   }
 
+  if (writeFab) {
+    if (path.includes(writeFab)) return true;
+    if (target && writeFab.contains(target)) return true;
+  }
+
+  if (writeMenu) {
+    if (path.includes(writeMenu)) return true;
+    if (target && writeMenu.contains(target)) return true;
+  }
+
   return false;
 }
 
@@ -565,8 +581,18 @@ function makeDraggable(popup: HTMLElement) {
     popup.style.userSelect = "";
   };
 
-  document.addEventListener("mousemove", onMouseMove);
-  document.addEventListener("mouseup", onMouseUp);
+  if (dragMouseMoveHandler) {
+    document.removeEventListener("mousemove", dragMouseMoveHandler);
+  }
+  if (dragMouseUpHandler) {
+    document.removeEventListener("mouseup", dragMouseUpHandler);
+  }
+
+  dragMouseMoveHandler = onMouseMove;
+  dragMouseUpHandler = onMouseUp;
+
+  document.addEventListener("mousemove", dragMouseMoveHandler);
+  document.addEventListener("mouseup", dragMouseUpHandler);
 }
 
 function attachPopupListeners(popup: HTMLElement) {
@@ -759,9 +785,13 @@ function showWordPopup(selection: Selection, text: string) {
     positionPopup(popup, rect, "above");
   });
 
+  const requestId = ++activePopupRequestId;
+
   safeSendMessage(
     { type: "TRANSLATE", data: { text, mode: "word" } },
     (response) => {
+      if (requestId !== activePopupRequestId) return;
+
       const host = document.getElementById("linguapop-host");
       if (!host || !host.shadowRoot) return;
       const currentPopup = host.shadowRoot.querySelector(
@@ -799,7 +829,7 @@ function showFab(selection: Selection, text: string, rawText?: string) {
   fab.style.cssText = `
     position: absolute;
     z-index: 2147483646;
-    background: #df37a7;
+    background: var(--lp-primary, #df37a7);
     color: #fff;
     border: none;
     border-radius: 999px;
@@ -810,7 +840,7 @@ function showFab(selection: Selection, text: string, rawText?: string) {
     justify-content: center;
     padding: 0;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(223, 55, 167, 0.35);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     transition: transform 0.1s, background 0.15s;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
@@ -824,17 +854,17 @@ function showFab(selection: Selection, text: string, rawText?: string) {
     showPhrasePopup(selection, text, rawText);
   });
 
-  document.body.appendChild(fab);
+  const shadow = getOrCreateShadowRoot();
+  shadow.appendChild(fab);
   currentFab = fab;
 
-  const htmlRect = document.documentElement.getBoundingClientRect();
   let targetLeft = rect.right - 2;
   if (targetLeft + 28 > window.innerWidth - 8) {
     targetLeft = window.innerWidth - 28 - 8;
   }
   
-  fab.style.left = `${targetLeft - htmlRect.left}px`;
-  fab.style.top = `${rect.bottom + 2 - htmlRect.top}px`;
+  fab.style.left = `${targetLeft}px`;
+  fab.style.top = `${rect.bottom + 2}px`;
 }
 
 function showPhrasePopup(selection: Selection, text: string, rawText?: string) {
@@ -851,9 +881,13 @@ function showPhrasePopup(selection: Selection, text: string, rawText?: string) {
     positionPopup(popup, rect, "below");
   });
 
+  const requestId = ++activePopupRequestId;
+
   safeSendMessage(
     { type: "TRANSLATE", data: { text, mode: "phrase" } },
     (response) => {
+      if (requestId !== activePopupRequestId) return;
+
       const host = document.getElementById("linguapop-host");
       if (!host || !host.shadowRoot) return;
       const currentPopup = host.shadowRoot.querySelector(
@@ -1060,9 +1094,14 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (mode === "phrase") {
       popup.classList.add("lp-popup-phrase");
     }
+    
+    const requestId = ++activePopupRequestId;
+
     safeSendMessage(
       { type: "TRANSLATE", data: { text, mode } },
       (response) => {
+        if (requestId !== activePopupRequestId) return;
+
         const host = document.getElementById("linguapop-host");
         if (!host || !host.shadowRoot) return;
         const currentPopup = host.shadowRoot.querySelector(
@@ -1352,16 +1391,15 @@ function updateWriteFabPosition() {
   }
 
   const rect = targetNode.getBoundingClientRect();
-  const htmlRect = document.documentElement.getBoundingClientRect();
   
   // Place outside the input: below it, aligned to the right edge
-  let top = rect.bottom - htmlRect.top + 6; // 6px gap below
-  const left = rect.right - htmlRect.left - 28; // right-aligned (28px is fab width)
+  let top = rect.bottom + 6; // 6px gap below
+  const left = rect.right - 28; // right-aligned (28px is fab width)
   
   // If placing it below pushes it off-screen, place it above the input
-  const maxTop = window.scrollY + window.innerHeight - 34;
+  const maxTop = window.innerHeight - 34;
   if (top > maxTop) {
-    top = rect.top - htmlRect.top - 28 - 6; 
+    top = rect.top - 28 - 6; 
   }
   
   writeFab.style.top = `${top}px`;
@@ -1398,7 +1436,7 @@ function showWriteFab(target: HTMLElement) {
     justify-content: center;
     padding: 0;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(223, 55, 167, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     transition: transform 0.1s, opacity 0.2s;
     opacity: 0.6;
   `;
@@ -1432,15 +1470,15 @@ function showWriteFab(target: HTMLElement) {
 
     const rect = writeFab!.getBoundingClientRect();
     writeMenu = document.createElement("div");
-    let menuLeft = rect.left + window.scrollX;
+    let menuLeft = rect.left;
     if (rect.left + 170 > window.innerWidth) {
-      menuLeft = window.innerWidth - 170 - 10 + window.scrollX;
+      menuLeft = window.innerWidth - 170 - 10;
     }
 
-    let menuTop = rect.bottom + window.scrollY + 8;
+    let menuTop = rect.bottom + 8;
     let transform = "none";
     if (rect.bottom + 190 > window.innerHeight) {
-      menuTop = rect.top + window.scrollY - 8;
+      menuTop = rect.top - 8;
       transform = "translateY(-100%)";
     }
 
@@ -1503,10 +1541,12 @@ function showWriteFab(target: HTMLElement) {
       writeMenu!.appendChild(btn);
     });
 
-    document.body.appendChild(writeMenu);
+    const shadow = getOrCreateShadowRoot();
+    shadow.appendChild(writeMenu);
   });
 
-  document.body.appendChild(writeFab);
+  const shadow = getOrCreateShadowRoot();
+  shadow.appendChild(writeFab);
   updateWriteFabPosition();
 }
 
@@ -1520,9 +1560,13 @@ function executeRewrite(tone: "normal" | "formal" | "friendly" | "shorter" | "gr
   writeFab!.style.opacity = "1";
   writeFab!.style.pointerEvents = "none";
   
+  const requestId = ++activeRewriteRequestId;
+  
   safeSendMessage(
     { type: "TRANSLATE", data: { text, mode: "rewrite", tone } },
     (response) => {
+      if (requestId !== activeRewriteRequestId) return;
+
       if (writeFab) {
         writeFab.innerHTML = originalIcon;
         writeFab.style.pointerEvents = "auto";
@@ -1542,7 +1586,7 @@ function executeRewrite(tone: "normal" | "formal" | "friendly" | "shorter" | "gr
             setTimeout(() => {
               if (writeFab) {
                 writeFab.style.background = "var(--lp-primary, #df37a7)";
-                writeFab.style.boxShadow = "0 4px 12px rgba(223, 55, 167, 0.3)";
+                writeFab.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.2)";
                 writeFab.innerHTML = ICONS.translate;
               }
               }, 1500);
