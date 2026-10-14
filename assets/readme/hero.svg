@@ -5,10 +5,13 @@
       <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" stroke-width="1"/>
     </pattern>
     <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.08"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000000" flood-opacity="0.08"/>
     </filter>
-    <filter id="fab-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#df37a7" flood-opacity="0.3"/>
+    <filter id="card-shadow" x="-15%" y="-15%" width="135%" height="135%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#831843" flood-opacity="0.12"/>
+    </filter>
+    <filter id="fab-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#df37a7" flood-opacity="0.4"/>
     </filter>
     <clipPath id="base-clip">
       <rect width="1200" height="600" rx="24"/>
@@ -20,10 +23,10 @@
     <rect width="1200" height="600" fill="#f9fafb"/>
     <rect width="1200" height="600" fill="url(#grid)"/>
 
-    <!-- Left side text -->
+    <!-- Left side typography -->
     <text x="80" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="800" fill="#1f2937" letter-spacing="-2">LinguaPop AI</text>
     <text x="80" y="300" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="500" fill="#4b5563">Your intelligent, context-aware translation</text>
-    <text x="80" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="500" fill="#4b5563">and writing assistant.</text>
+    <text x="80" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="500" fill="#4b5563">tool for Chromium browsers.</text>
 
     <!-- Badges -->
     <g transform="translate(80, 400)">
@@ -39,50 +42,76 @@
       <text x="60" y="23" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#047857" text-anchor="middle">Privacy First</text>
     </g>
 
-    <!-- Right side illustration (browser window with input) -->
-    <g id="browser-window" transform="translate(620, 120)">
-      <!-- Browser window -->
-      <rect width="520" height="360" rx="16" fill="#ffffff" filter="url(#shadow)"/>
+    <!-- Right side: Browser mockup -->
+    <g id="browser-window" transform="translate(610, 100)">
+      <!-- Browser window container -->
+      <rect width="520" height="390" rx="16" fill="#ffffff" filter="url(#shadow)"/>
       
-      <!-- Window header -->
-      <path d="M 0 16 A 16 16 0 0 1 16 0 L 504 0 A 16 16 0 0 1 520 16 L 520 40 L 0 40 Z" fill="#f3f4f6"/>
-      <circle cx="24" cy="20" r="6" fill="#ef4444"/>
-      <circle cx="44" cy="20" r="6" fill="#eab308"/>
-      <circle cx="64" cy="20" r="6" fill="#22c55e"/>
+      <!-- Window header with URL bar -->
+      <path d="M 0 16 A 16 16 0 0 1 16 0 L 504 0 A 16 16 0 0 1 520 16 L 520 44 L 0 44 Z" fill="#f3f4f6"/>
+      <circle cx="24" cy="22" r="6" fill="#ef4444"/>
+      <circle cx="44" cy="22" r="6" fill="#eab308"/>
+      <circle cx="64" cy="22" r="6" fill="#22c55e"/>
+      <rect x="96" y="10" width="320" height="24" rx="6" fill="#ffffff" stroke="#e5e7eb" stroke-width="1"/>
+      <text x="110" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#6b7280">🔒 nature.com/articles/deep-learning-semantics</text>
 
-      <!-- Content area -->
-      <g transform="translate(30, 70)">
-        <text x="0" y="20" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#1f2937">New Message</text>
+      <!-- Web page content -->
+      <g transform="translate(36, 75)">
+        <text x="0" y="16" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#6366f1" letter-spacing="0.5">RESEARCH PAPER</text>
+        <text x="0" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#111827">Contextual Nuances in Neural Translation</text>
         
-        <!-- Text input area -->
-        <rect x="0" y="40" width="460" height="180" rx="8" fill="#ffffff" stroke="#d1d5db" stroke-width="1"/>
-        
-        <text x="16" y="70" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#374151">Привет! Подскажи, пожалуйста,</text>
-        <text x="16" y="94" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#374151">в какое время лучше всего</text>
-        <text x="16" y="118" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#374151">забронировать столик на вечер?</text>
-        
-        <!-- LinguaPop FAB -->
-        <g id="fab" transform="translate(420, 182)" filter="url(#fab-shadow)">
-          <circle cx="16" cy="16" r="16" fill="#df37a7"/>
-          <path d="M12.5 10H16.5M16.5 10L14.5 14M16.5 10L18.5 14M10 8L15 8L14 10L9 10L8 12H13L12 14H7L6 16H4L8 8Z" fill="#ffffff" stroke="#ffffff" stroke-width="0.5"/>
-        </g>
-        
-        <!-- Popup Menu -->
-        <g id="popup-menu" transform="translate(260, 222)">
-          <rect width="170" height="152" rx="12" fill="#ffffff" filter="url(#shadow)" stroke="#eaeaea" stroke-width="1"/>
-          <rect x="4" y="4" width="162" height="28" rx="6" fill="#fce7f3"/>
-          <text x="12" y="23" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="500" fill="#be185d">Обычный перевод</text>
-          
-          <text x="12" y="53" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#333">Формальный</text>
-          <text x="12" y="83" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#333">Дружелюбный</text>
-          <text x="12" y="113" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#333">Сделать короче</text>
-          <text x="12" y="143" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#333">Только грамматика</text>
-        </g>
+        <text x="0" y="80" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#4b5563" line-height="24">Modern language models capture complex semantic</text>
+        <text x="0" y="106" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#4b5563">relationships across sentences. With LinguaPop,</text>
+        <text x="0" y="132" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#4b5563">you can translate idiomatic expressions easily</text>
+        <text x="0" y="158" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#4b5563">while preserving the exact tone and nuance.</text>
       </g>
+    </g>
+
+    <!-- Layer: Selection Highlight on text -->
+    <g id="selection" transform="translate(610, 100)">
+      <g transform="translate(36, 75)">
+        <rect x="62" y="116" width="308" height="23" rx="4" fill="#fbcfe8" fill-opacity="0.8"/>
+        <text x="63" y="132" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="600" fill="#9d174d">translate idiomatic expressions easily</text>
+      </g>
+    </g>
+
+    <!-- Layer: LinguaPop FAB Button -->
+    <g id="fab" transform="translate(980, 210)" filter="url(#fab-shadow)">
+      <circle cx="16" cy="16" r="16" fill="#df37a7"/>
+      <!-- Translate Icon -->
+      <g transform="translate(7, 7)">
+        <path d="M7 1v1.5M1 3h12M4.5 3c-.5 3-1.8 5-3.5 6.5M9.5 3c-.8 2.5-2.2 4.5-4 6" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+        <path d="M8 8.5l2.5 5 2.5-5M9 12h3" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+      </g>
+    </g>
+
+    <!-- Layer: Translation Card Popup -->
+    <g id="popup-card" transform="translate(680, 246)">
+      <rect width="360" height="136" rx="14" fill="#ffffff" filter="url(#card-shadow)" stroke="#f3e8ff" stroke-width="1.5"/>
       
-      <!-- Send Button -->
-      <rect x="30" y="290" width="80" height="36" rx="18" fill="#2563eb"/>
-      <text x="70" y="313" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Send</text>
+      <!-- Card header -->
+      <circle cx="24" cy="24" r="10" fill="#df37a7"/>
+      <g transform="translate(19, 19)">
+        <path d="M4 1v1M1 2.2h8M3 2.2c-.3 1.8-1 3-2 4M6.5 2.2c-.5 1.5-1.3 2.7-2.3 3.6" stroke="#ffffff" stroke-width="1" stroke-linecap="round" fill="none"/>
+      </g>
+      <text x="42" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#111827">LinguaPop AI</text>
+      
+      <!-- Badges in card header -->
+      <rect x="220" y="14" width="56" height="20" rx="4" fill="#fce7f3"/>
+      <text x="248" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="10.5" font-weight="700" fill="#be185d" text-anchor="middle">EN → RU</text>
+
+      <rect x="282" y="14" width="64" height="20" rx="4" fill="#e0e7ff"/>
+      <text x="314" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="10.5" font-weight="600" fill="#4338ca" text-anchor="middle">LLM Fast</text>
+
+      <line x1="14" y1="44" x2="346" y2="44" stroke="#f3f4f6" stroke-width="1"/>
+
+      <!-- Translation Result -->
+      <text x="18" y="72" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#111827">легко переводить идиомы</text>
+      <text x="18" y="94" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#6b7280">и устойчивые языковые выражения</text>
+
+      <!-- Card footer -->
+      <line x1="14" y1="108" x2="346" y2="108" stroke="#f9fafb" stroke-width="1"/>
+      <text x="18" y="124" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="500" fill="#9ca3af">⚡ Контекстный ИИ-перевод • 0мс (LRU кэш)</text>
     </g>
   </g>
 </svg>

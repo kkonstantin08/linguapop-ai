@@ -29,7 +29,7 @@
 
 **LinguaPop AI v1.1.6** is a sleek, intelligent, privacy-first browser extension built for Chromium-based browsers (Google Chrome, Brave, Microsoft Edge, Arc, Vivaldi, Opera). 
 
-Unlike conventional browser translators that rely on rigid dictionaries or capture your private web browsing data on third-party servers, LinguaPop AI combines a **Bring Your Own Key (BYOK)** multi-LLM architecture with on-device AI fallbacks. It delivers context-aware translations, instant grammatical correction, tone-shifting writing assistance, and seamless full-page translation directly inside your browser.
+Unlike conventional browser translators that rely on rigid dictionaries or capture your private web browsing data on third-party servers, LinguaPop AI combines a **Bring Your Own Key (BYOK)** multi-LLM architecture with on-device AI fallbacks. It delivers context-aware translations, instant selection tooltips, dictionary definitions, and seamless full-page translation directly inside your browser.
 
 ---
 
@@ -50,12 +50,11 @@ Never get blocked by API rate limits, expired keys, or intermittent internet out
 - **Google Translate Fallback**: Automatic, zero-delay failover to public translation pipelines if primary AI provider calls fail.
 - **Fail-Safe Guarantee**: If an API quota is exhausted, translation completes without breaking user experience.
 
-### ✍️ 3. Inline Writing Assistant
-A floating intelligent button appears inside editable text fields, textareas, and rich-text inputs across any website (Gmail, Notion, GitHub, Twitter/X, Telegram Web, LinkedIn):
-- 🎩 **Formal**: Converts draft thoughts into polished business correspondence, academic phrasing, and professional emails.
-- 💬 **Friendly**: Adapts text for casual chatting, warm customer relations, and engaging social posts.
-- ⚡ **Concise**: Trims wordiness, eliminates fluff, and crystallizes your core message.
-- 🔍 **Grammar-only**: Fixes punctuation, syntax, and spelling errors while strictly preserving your personal voice.
+### 🎯 3. Selection & Instant Floating Translator
+Highlight any word, phrase, or sentence on any website:
+- ⚡ **Floating Action Button (FAB)**: A sleek LinguaPop button appears unobtrusively right next to your selection.
+- 💬 **Context-Aware Tooltip**: Click the floating button (or hit <kbd>Alt</kbd> + <kbd>T</kbd>) to instantly open an elegant translation card with idiomatic meaning, phonetic pronunciation, and grammatical clarity.
+- 🔄 **Bidirectional Translation**: Automatically detects the source language and translates seamlessly between your native and target languages (RU ↔ EN, ES, DE, FR, and more).
 
 ### 🌊 4. Waterfall Page Translation
 Streamlined, non-destructive DOM translation:
@@ -164,7 +163,7 @@ LinguaPop AI is engineered under a strict **Zero-Telemetry, Local-First** philos
 linguapop-ai/
 ├── manifest.json              # Chrome Manifest V3 configuration
 ├── background.js              # Service worker handling API requests & hotkeys
-├── content.js                 # Content script for page DOM, popups & writing assistant
+├── content.js                 # Content script for page DOM, text selection & translation popups
 ├── chrome-translator-bridge.js# Bridge to local Chrome Built-in AI (window.ai)
 ├── popup.html                 # Quick translation popup interface
 ├── options.html               # Settings, model selection & provider keys
