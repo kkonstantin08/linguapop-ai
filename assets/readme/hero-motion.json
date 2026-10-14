@@ -20,19 +20,6 @@
   ],
   "layers": [
     {
-      "id": "browser-window",
-      "enter": {
-        "start": 0.1,
-        "end": 0.7,
-        "from": [0, 30]
-      },
-      "exit": {
-        "start": 4.6,
-        "end": 4.9,
-        "to": [0, 30]
-      }
-    },
-    {
       "id": "fab",
       "enter": {
         "start": 1.5,
