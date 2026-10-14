@@ -951,6 +951,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LEGACY_COLORS = exports.ACCENTS = void 0;
 exports.resolveAccent = resolveAccent;
 exports.accentForeground = accentForeground;
+exports.accentHover = accentHover;
+exports.accentFocusRing = accentFocusRing;
 exports.applyAccent = applyAccent;
 /** Central palette shared by popup, settings and the content-script Shadow DOM. */
 exports.ACCENTS = [
@@ -977,11 +979,23 @@ function accentForeground(color) {
         .map((n) => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4);
     return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722 > .18 ? "#111827" : "#ffffff";
 }
+/** Derive hover and focus colors from the current accent, never from the old pink theme. */
+function accentHover(color) {
+    const hex = resolveAccent(color);
+    const toHex = (value) => Math.round(value * 0.86).toString(16).padStart(2, "0");
+    return "#" + [1, 3, 5].map((start) => toHex(parseInt(hex.slice(start, start + 2), 16))).join("");
+}
+function accentFocusRing(color) {
+    const hex = resolveAccent(color);
+    const rgb = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.2)`;
+}
 function applyAccent(color, el = document.documentElement) {
     el.style.setProperty("--lp-primary", resolveAccent(color));
     el.style.setProperty("--lp-primary-contrast", accentForeground(color));
+    el.style.setProperty("--lp-primary-hover", accentHover(color));
+    el.style.setProperty("--lp-focus-ring", accentFocusRing(color));
 }
-
 },
 "src/shared/theme":function(module,exports,require){
 "use strict";
@@ -1152,6 +1166,9 @@ function PopupApp() {
     const inputRef = (0, react_1.useRef)(null);
     const requestRef = (0, react_1.useRef)(null);
     const seqRef = (0, react_1.useRef)(0);
+    // Kept stable for the lifetime of the popup. The native keyboard listeners
+    // must not be torn down/reinstalled on every keystroke or async state update.
+    const translateShortcutRef = (0, react_1.useRef)(() => { });
     useAppearance(settings);
     (0, react_1.useEffect)(() => {
         let alive = true;
@@ -1251,6 +1268,88 @@ function PopupApp() {
             await (0, storage_1.addHistoryEntry)({ id: crypto.randomUUID(), timestamp: Date.now(), originalText: text, translation: result.translation, sourceLanguage: pair.sourceLanguage, targetLanguage: pair.targetLanguage, favorite: false }).catch(() => { });
         });
     }, [draft.input, direction, cancelPending]);
+    // A single, permanent keyboard listener for the popup. React updates the
+    // current callback through a ref, so typing/re-rendering cannot create a
+    // gap when no listener is installed. Some Chrome/macOS popup configurations
+    // deliver the release without the matching keydown, so keyup is a fallback.
+    translateShortcutRef.current = () => {
+        if (screen !== "translate" || !draft.input.trim() || loading || requestRef.current)
+            return;
+        translate();
+    };
+    (0, react_1.useEffect)(() => {
+        let handledOnKeyDown = false;
+        let metaHeld = false;
+        let ctrlHeld = false;
+        let composing = false;
+        let suppressKeyUp = false;
+        const isEnter = (event) => event.key === "Enter" || event.key === "Return" ||
+            event.code === "Enter" || event.code === "NumpadEnter";
+        const isShortcut = (event, onRelease = false) => isEnter(event) && (event.metaKey || event.ctrlKey ||
+            (onRelease && (metaHeld || ctrlHeld))) &&
+            !event.altKey && !event.shiftKey;
+        const onKeyDown = (event) => {
+            if (event.key === "Meta")
+                metaHeld = true;
+            if (event.key === "Control")
+                ctrlHeld = true;
+            if (!isEnter(event))
+                return;
+            if (composing || event.isComposing || event.keyCode === 229) {
+                suppressKeyUp = true;
+                return;
+            }
+            if (!isShortcut(event))
+                return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.repeat)
+                return;
+            handledOnKeyDown = true;
+            translateShortcutRef.current();
+        };
+        const onKeyUp = (event) => {
+            if (event.key === "Meta")
+                metaHeld = false;
+            if (event.key === "Control")
+                ctrlHeld = false;
+            if (!isEnter(event))
+                return;
+            const alreadyHandled = handledOnKeyDown;
+            handledOnKeyDown = false;
+            if (suppressKeyUp || composing || event.isComposing || event.keyCode === 229) {
+                suppressKeyUp = false;
+                return;
+            }
+            if (!isShortcut(event, true))
+                return;
+            event.preventDefault();
+            event.stopPropagation();
+            // Browser may consume the press, but still deliver the release. Handle
+            // that once; never submit twice when both events reached the popup.
+            if (!alreadyHandled)
+                translateShortcutRef.current();
+        };
+        const onCompositionStart = () => { composing = true; };
+        const onCompositionEnd = () => { composing = false; };
+        const resetModifiers = () => {
+            metaHeld = false;
+            ctrlHeld = false;
+            handledOnKeyDown = false;
+        };
+        window.addEventListener("keydown", onKeyDown, true);
+        window.addEventListener("keyup", onKeyUp, true);
+        window.addEventListener("compositionstart", onCompositionStart, true);
+        window.addEventListener("compositionend", onCompositionEnd, true);
+        window.addEventListener("blur", resetModifiers);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown, true);
+            window.removeEventListener("keyup", onKeyUp, true);
+            window.removeEventListener("compositionstart", onCompositionStart, true);
+            window.removeEventListener("compositionend", onCompositionEnd, true);
+            window.removeEventListener("blur", resetModifiers);
+        };
+    }, []);
     const copy = async (text) => {
         try {
             await navigator.clipboard.writeText(text);
@@ -1290,10 +1389,6 @@ function PopupApp() {
             e.preventDefault();
             window.close();
         }
-        else if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && screen === "translate") {
-            e.preventDefault();
-            translate();
-        }
     };
     if (!settings)
         return (0, jsx_runtime_1.jsx)("div", { className: "lp-loading-screen", "aria-label": "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430", children: "LinguaPop" });
@@ -1306,7 +1401,6 @@ function PopupApp() {
                                     setHistory([]);
                                 } }, children: (0, jsx_runtime_1.jsx)(Icon, { name: "trash" }) })] }), (0, jsx_runtime_1.jsxs)("div", { className: "lp-search", children: [(0, jsx_runtime_1.jsx)(Icon, { name: "search", size: 17 }), (0, jsx_runtime_1.jsx)("input", { "aria-label": "\u041F\u043E\u0438\u0441\u043A \u0432 \u0438\u0441\u0442\u043E\u0440\u0438\u0438", placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430\u043C", value: search, onChange: e => setSearch(e.target.value) })] }), (0, jsx_runtime_1.jsx)("div", { className: "lp-history-list", children: !shown.length ? (0, jsx_runtime_1.jsx)("div", { className: "lp-history-empty", children: search ? "Ничего не найдено" : "История пока пуста" }) : shown.map(item => (0, jsx_runtime_1.jsxs)("div", { className: "lp-history-item", children: [(0, jsx_runtime_1.jsxs)("button", { className: "lp-history-text", onClick: () => restore(item), title: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u0435\u0440\u0435\u0432\u043E\u0434", children: [(0, jsx_runtime_1.jsxs)("span", { className: "lp-history-date", children: [new Date(item.timestamp).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }), " \u00B7 ", item.sourceLanguage.toUpperCase(), " \u2192 ", item.targetLanguage.toUpperCase()] }), (0, jsx_runtime_1.jsx)("strong", { children: item.originalText }), (0, jsx_runtime_1.jsx)("span", { children: item.translation })] }), (0, jsx_runtime_1.jsxs)("div", { className: "lp-history-actions", children: [(0, jsx_runtime_1.jsx)("button", { className: item.favorite ? "favorite" : "", title: item.favorite ? "Убрать из избранного" : "В избранное", onClick: () => toggleFavorite(item), children: (0, jsx_runtime_1.jsx)(Icon, { name: "star", size: 16 }) }), (0, jsx_runtime_1.jsx)("button", { title: "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C", onClick: () => copy(item.translation), children: (0, jsx_runtime_1.jsx)(Icon, { name: "copy", size: 16 }) }), (0, jsx_runtime_1.jsx)("button", { title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", onClick: () => remove(item.id), children: (0, jsx_runtime_1.jsx)(Icon, { name: "trash", size: 16 }) })] })] }, item.id)) })] })] });
 }
-
 },
 "src/popup/popup":function(module,exports,require){
 "use strict";

@@ -5863,6 +5863,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LEGACY_COLORS = exports.ACCENTS = void 0;
 exports.resolveAccent = resolveAccent;
 exports.accentForeground = accentForeground;
+exports.accentHover = accentHover;
+exports.accentFocusRing = accentFocusRing;
 exports.applyAccent = applyAccent;
 /** Central palette shared by popup, settings and the content-script Shadow DOM. */
 exports.ACCENTS = [
@@ -5889,11 +5891,23 @@ function accentForeground(color) {
         .map((n) => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4);
     return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722 > .18 ? "#111827" : "#ffffff";
 }
+/** Derive hover and focus colors from the current accent, never from the old pink theme. */
+function accentHover(color) {
+    const hex = resolveAccent(color);
+    const toHex = (value) => Math.round(value * 0.86).toString(16).padStart(2, "0");
+    return "#" + [1, 3, 5].map((start) => toHex(parseInt(hex.slice(start, start + 2), 16))).join("");
+}
+function accentFocusRing(color) {
+    const hex = resolveAccent(color);
+    const rgb = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.2)`;
+}
 function applyAccent(color, el = document.documentElement) {
     el.style.setProperty("--lp-primary", resolveAccent(color));
     el.style.setProperty("--lp-primary-contrast", accentForeground(color));
+    el.style.setProperty("--lp-primary-hover", accentHover(color));
+    el.style.setProperty("--lp-focus-ring", accentFocusRing(color));
 }
-
 },
 "src/content/content":function(module,exports,require){
 "use strict";
@@ -5927,6 +5941,7 @@ function applyContentAppearance() {
         return;
     host.dataset.theme = useDarkContentTheme() ? "dark" : "light";
     host.style.setProperty("--lp-primary", currentAccentColor);
+    host.style.setProperty("--lp-primary-hover", (0, accent_1.accentHover)(currentAccentColor));
     host.style.setProperty("--lp-primary-contrast", (0, accent_1.accentForeground)(currentAccentColor));
     host.style.setProperty("--lp-content-font", contentFontSize === "small" ? "13px" : contentFontSize === "large" ? "17px" : "15px");
     host.style.setProperty("--lp-content-pad", compactContent ? "10px" : "16px");
@@ -6065,7 +6080,7 @@ const POPUP_CSS = `
   transition: transform .1s, background .15s;
   font-family: inherit;
 }
-.lp-fab:hover { background: #c42e92; transform: translateY(-1px); }
+.lp-fab:hover { background: var(--lp-primary-hover, #c42e92); transform: translateY(-1px); }
 .lp-fab:active { transform: translateY(0); }
 .lp-fab svg {
   display: block;
@@ -6099,13 +6114,36 @@ const POPUP_CSS = `
   transition: color 0.15s, background 0.15s;
 }
 .lp-close-btn:hover { color: var(--lp-c-title); background: var(--lp-c-hover); }
+/* Keep close alongside action buttons: absolute positioning can cover Copy. */
+.lp-popup .lp-close-inline {
+  position: static;
+  flex: 0 0 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--lp-c-border);
+  background: var(--lp-c-bg);
+  border-radius: 10px;
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1;
+}
+.lp-popup .lp-close-inline:hover { background: var(--lp-c-hover); }
 
-.lp-word-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; padding-right: 20px; }
+.lp-word-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; padding-right: 0; }
+.lp-word-header .lp-close-inline { margin-left: auto; }
 .lp-word { font-size: 18px; font-weight: 700; color: var(--lp-c-title); }
 .lp-pos { font-size: 12px; color: var(--lp-c-muted); text-transform: lowercase; background: var(--lp-c-hover); padding: 2px 8px; border-radius: 10px; }
 .lp-pronunciation { font-size: 13px; color: var(--lp-c-muted); margin-bottom: 8px; font-style: italic; }
 
-.lp-result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; padding-right: 20px; }
+.lp-result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+/* When the popup is narrow, actions move below the translation instead of overlapping it. */
+.lp-popup-phrase .lp-result-header { flex-wrap: wrap; }
+.lp-popup-phrase .lp-phrase-translation { flex: 1 1 200px; }
+.lp-popup-phrase .lp-icon-actions { margin-left: auto; }
 .lp-main-translation { font-size: 16px; font-weight: 600; color: var(--lp-primary, #df37a7); flex: 1; min-width: 0; }
 
 /* Markdown typography & elements */
@@ -6209,6 +6247,7 @@ const POPUP_CSS = `
 }
 
 .lp-icon-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lp-icon-actions > * { flex-shrink: 0; }
 .lp-icon-btn {
   width: 32px;
   height: 32px;
@@ -6358,6 +6397,7 @@ function getOrCreateShadowRoot() {
     if (!host) {
         host = createHost();
         host.style.setProperty("--lp-primary", currentAccentColor);
+        host.style.setProperty("--lp-primary-hover", (0, accent_1.accentHover)(currentAccentColor));
         host.style.setProperty("--lp-primary-contrast", (0, accent_1.accentForeground)(currentAccentColor));
         const shadow = host.attachShadow({ mode: "open" });
         const style = document.createElement("style");
@@ -6561,6 +6601,41 @@ function createPopupInShadow() {
     makeDraggable(popup);
     return popup;
 }
+/**
+ * Range.getClientRects() can include boxes for inline widgets, absolutely
+ * positioned descendants and empty wrappers. Those boxes may be hundreds
+ * of pixels away from the visible highlighted text (e.g. ChatGPT toolbars).
+ * Locate the final *selected text character* instead of the final DOM rect.
+ */
+function getLastSelectedGlyphRect(range) {
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node = root.nodeType === Node.TEXT_NODE ? root : walker.nextNode();
+    let lastVisible = null;
+    let scanned = 0;
+    while (node && scanned++ < 5000) {
+        const text = node;
+        if (text.data && range.intersectsNode(text)) {
+            const from = text === range.startContainer ? range.startOffset : 0;
+            const to = text === range.endContainer ? range.endOffset : text.data.length;
+            let cursor = Math.min(to, text.data.length) - 1;
+            while (cursor >= from && /\s/.test(text.data[cursor]))
+                cursor--;
+            if (cursor >= from) {
+                const glyph = document.createRange();
+                glyph.setStart(text, cursor);
+                glyph.setEnd(text, cursor + 1);
+                const rect = glyph.getBoundingClientRect();
+                const style = text.parentElement && getComputedStyle(text.parentElement);
+                if (rect.width > 0 && rect.height > 0 && style?.visibility !== "hidden" && style?.display !== "none") {
+                    lastVisible = rect;
+                }
+            }
+        }
+        node = walker.nextNode();
+    }
+    return lastVisible;
+}
 function getRangeAnchorRect(range, anchor = "bounds") {
     const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
     if (rects.length === 0) {
@@ -6570,7 +6645,7 @@ function getRangeAnchorRect(range, anchor = "bounds") {
         return rects[0];
     }
     if (anchor === "end") {
-        return rects[rects.length - 1];
+        return getLastSelectedGlyphRect(range) ?? rects[rects.length - 1];
     }
     return range.getBoundingClientRect();
 }
@@ -6663,10 +6738,10 @@ function renderWordResult(popup, result, originalText) {
     </div>
   `;
     let html = `
-    <button class="lp-close-btn" title="Закрыть">×</button>
     <div class="lp-word-header">
       <span class="lp-word">${escapeHtml(result.word)}</span>
       <span class="lp-pos">${escapeHtml(result.partOfSpeech)}</span>
+      <button class="lp-close-btn lp-close-inline" type="button" title="Закрыть" aria-label="Закрыть">×</button>
     </div>
   `;
     if (result.pronunciation) {
@@ -6717,12 +6792,12 @@ function renderPhraseResult(popup, result, originalText, rawOriginalText) {
     const plainText = (tempDiv.textContent || "").trim() || result.translation;
     const safeOriginalText = rawOriginalText || originalText;
     popup.innerHTML = `
-    <button class="lp-close-btn" title="Закрыть">×</button>
     <div class="lp-result-header">
       <div class="lp-phrase-translation">${finalHtml}</div>
       <div class="lp-icon-actions">
         <button class="lp-icon-btn lp-icon-speak" type="button" title="Speak" data-text="${escapeHtml(safeOriginalText)}" data-lang="${lang}">${ICONS.speak}</button>
         <button class="lp-icon-btn lp-icon-copy" type="button" title="Copy" data-text="${escapeHtml(plainText)}">${ICONS.copy}</button>
+        <button class="lp-close-btn lp-close-inline" type="button" title="Закрыть" aria-label="Закрыть">×</button>
       </div>
     </div>
     <div class="lp-actions">
@@ -6810,8 +6885,7 @@ function showFab(selection, text, rawText) {
     fab.style.cssText = `
     position: fixed;
     z-index: 2147483646;
-    background: var(--lp-primary, #df37a7);
-    color: #fff;
+    color: var(--lp-primary-contrast, #fff);
     border: none;
     border-radius: 999px;
     width: 28px;
@@ -6994,6 +7068,7 @@ function getMarkdownFromSelection(selection) {
     }
 }
 let selectionTimeout = null;
+let selectionScrollSerial = 0;
 function isInsideEditableOrInput(node) {
     if (!node)
         return false;
@@ -7013,7 +7088,10 @@ function isInsideEditableOrInput(node) {
 function handleSelection() {
     if (selectionTimeout)
         clearTimeout(selectionTimeout);
+    const scrollSerial = selectionScrollSerial;
     selectionTimeout = setTimeout(() => {
+        if (scrollSerial !== selectionScrollSerial)
+            return;
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
             hideAll();
@@ -7031,7 +7109,7 @@ function handleSelection() {
             return;
         }
         checkExcluded().then((excluded) => {
-            if (excluded)
+            if (excluded || scrollSerial !== selectionScrollSerial)
                 return;
             const words = rawText.split(/\s+/).filter((w) => w.length > 0);
             if (words.length === 1 && rawText.length > 0 && rawText.length < 50) {
@@ -7085,6 +7163,10 @@ document.addEventListener("keydown", (e) => {
 let scrollRafId = null;
 let lastScrollY = window.scrollY;
 function onScrollThrottled() {
+    // A fixed FAB cannot follow nested scrollers reliably; hide it immediately.
+    selectionScrollSerial++;
+    if (currentFab)
+        hideFab();
     if (scrollRafId !== null)
         return;
     scrollRafId = requestAnimationFrame(() => {
@@ -7098,6 +7180,9 @@ function onScrollThrottled() {
 }
 let resizeRafId = null;
 function onResizeThrottled() {
+    selectionScrollSerial++;
+    if (currentFab)
+        hideFab();
     if (resizeRafId !== null)
         return;
     resizeRafId = requestAnimationFrame(() => {

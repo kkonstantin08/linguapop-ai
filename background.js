@@ -540,26 +540,121 @@ function speedReasoningOptions(provider, model) {
         return { reasoning_effort: "low" };
     return {};
 }
-async function callOpenAICompatibleProvider(provider, endpoint, options) {
-    const response = await providerFetch(endpoint, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${options.apiKey}`,
-        },
-        body: JSON.stringify({
-            model: options.model,
-            messages: [{ role: "user", content: options.prompt }],
-            temperature: 0.1,
-            max_completion_tokens: options.maxTokens ?? 1024,
-            response_format: { type: "json_object" },
-            ...speedReasoningOptions(provider, options.model),
-        }),
-    }, options);
-    if (!response.ok) {
-        throw new Error(await extractErrorMessage(response));
+/** Groq Strict Structured Outputs are supported by GPT-OSS models. The schemas
+ * describe the actual translation payloads, not just "any JSON object". */
+function groqStrictResponseFormat(model, shape) {
+    if (!shape || !["openai/gpt-oss-20b", "openai/gpt-oss-120b"].includes(model)) {
+        return null;
     }
-    return openAICompatibleResponseText(await response.json());
+    const str = { type: "string" };
+    const strings = { type: "array", items: str };
+    const properties = shape === "word"
+        ? {
+            detectedLanguage: str,
+            targetLanguage: str,
+            word: str,
+            mainTranslation: str,
+            alternatives: strings,
+            partOfSpeech: str,
+            pronunciation: str,
+            shortExamples: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: { source: str, translation: str },
+                    required: ["source", "translation"],
+                    additionalProperties: false,
+                },
+            },
+        }
+        : shape === "translation"
+            ? { detectedLanguage: str, targetLanguage: str, translation: str }
+            : shape === "translations"
+                ? { translations: strings }
+                : { status: str };
+    return {
+        type: "json_schema",
+        json_schema: {
+            name: `linguapop_${shape}`,
+            strict: true,
+            schema: {
+                type: "object",
+                properties,
+                required: Object.keys(properties),
+                additionalProperties: false,
+            },
+        },
+    };
+}
+function jsonGenerationFailure(error) {
+    return /^bad_request:/i.test(error) &&
+        /failed to generate JSON|failed_generation|generated JSON does not match/i.test(error);
+}
+function validJsonRecovery(content, shape) {
+    try {
+        const unwrapped = content.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1");
+        const obj = JSON.parse(unwrapped);
+        if (!obj || typeof obj !== "object" || Array.isArray(obj))
+            return false;
+        if (shape === "word")
+            return typeof obj.mainTranslation === "string";
+        if (shape === "translation")
+            return typeof obj.translation === "string";
+        if (shape === "translations")
+            return Array.isArray(obj.translations) && obj.translations.every((v) => typeof v === "string");
+        if (shape === "status")
+            return typeof obj.status === "string";
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+async function callOpenAICompatibleProvider(provider, endpoint, options) {
+    const strictFormat = provider === "groq"
+        ? groqStrictResponseFormat(options.model, options.responseShape)
+        : null;
+    const request = async (responseFormat) => {
+        const response = await providerFetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${options.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: options.model,
+                messages: [{ role: "user", content: options.prompt }],
+                temperature: 0.1,
+                // Reasoning consumes completion tokens on GPT-OSS. A 320/512 limit
+                // can truncate even short dictionary responses before the JSON closes.
+                max_completion_tokens: provider === "groq" && /^openai\/gpt-oss-(20b|120b)$/.test(options.model)
+                    ? Math.max(1024, options.maxTokens ?? 1024)
+                    : options.maxTokens ?? 1024,
+                ...(responseFormat ? { response_format: responseFormat } : {}),
+                ...speedReasoningOptions(provider, options.model),
+            }),
+        }, options);
+        if (!response.ok)
+            throw new Error(await extractErrorMessage(response));
+        return openAICompatibleResponseText(await response.json());
+    };
+    try {
+        return await request(strictFormat || { type: "json_object" });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        // Some non-strict Groq models occasionally fail server-side JSON parsing.
+        // Retry once in plain-text mode but still require JSON locally; otherwise
+        // the translation service's normal fallback must handle the request.
+        if (provider !== "groq" || !jsonGenerationFailure(message) || options.signal?.aborted) {
+            throw error;
+        }
+        const recovered = await request();
+        if (!validJsonRecovery(recovered, options.responseShape)) {
+            throw new Error("invalid_json_response");
+        }
+        return recovered;
+    }
 }
 async function callGroq(options) {
     return callOpenAICompatibleProvider("groq", "https://api.groq.com/openai/v1/chat/completions", options);
@@ -659,7 +754,6 @@ function extractJsonFromMarkdown(text) {
     }
     return text.trim();
 }
-
 },
 "src/shared/llm/client":function(module,exports,require){
 "use strict";
@@ -766,7 +860,7 @@ async function callLLM(prompt, options) {
         options?.model !== undefined;
     if (!hasExplicitProviderConfig) {
         const settings = await (0, storage_1.getSettings)();
-        activeProvider ?? (activeProvider = settings.activeProvider);
+        activeProvider ??= settings.activeProvider;
         const providerConfig = settings.providers[activeProvider];
         if (options?.apiKey === undefined) {
             apiKeysStr = providerConfig?.apiKeys?.trim() || "";
@@ -794,6 +888,7 @@ async function callLLM(prompt, options) {
                 model: selectedModel || "",
                 prompt,
                 maxTokens: options?.maxTokens,
+                responseShape: options?.responseShape,
                 signal: options?.signal,
                 timeoutMs: options?.timeoutMs,
             };
@@ -815,7 +910,7 @@ async function callLLM(prompt, options) {
     }
     throw lastError || new Error("unknown_error");
 }
-exports.API_KEY_TEST_TIMEOUT_MS = 20000;
+exports.API_KEY_TEST_TIMEOUT_MS = 20_000;
 async function testApiKey(provider, apiKey, model) {
     if (provider === "mistral") {
         await (0, providers_1.testMistralApiKey)(apiKey, model, { timeoutMs: exports.API_KEY_TEST_TIMEOUT_MS });
@@ -827,10 +922,10 @@ async function testApiKey(provider, apiKey, model) {
         apiKey,
         model,
         maxTokens: 64,
+        responseShape: "status",
         timeoutMs: exports.API_KEY_TEST_TIMEOUT_MS,
     });
 }
-
 },
 "src/shared/language":function(module,exports,require){
 "use strict";
@@ -2014,17 +2109,17 @@ function llmTimeoutForRequest(request) {
     switch (request.mode) {
         case "phrase":
         case "popup":
-            return 3000;
+            return 3_000;
         case "word":
-            return 5000;
+            return 5_000;
         case "batch":
             // Batch uses the local/network fallback chain by default. This limit only
             // applies when the user explicitly disables fallback and forces LLM mode.
-            return 5000;
+            return 5_000;
     }
 }
 function logTranslationTiming(request, timing) {
-    if (timing.totalMs < 1000)
+    if (timing.totalMs < 1_000)
         return;
     console.debug(`[LinguaPop] timing mode=${request.mode} path=${timing.path} ` +
         `settings=${timing.settingsMs}ms cache=${timing.cacheMs}ms ` +
@@ -2398,6 +2493,9 @@ async function translate(request, options = {}) {
     else {
         prompt = (0, prompts_1.buildPopupPrompt)(request.text, request.sourceLanguage || "auto", targetLang);
     }
+    const responseShape = request.mode === "word" ? "word"
+        : request.mode === "batch" || structuredFormatting ? "translations"
+            : "translation";
     let content = "";
     let result = null;
     let usedFallback = false;
@@ -2411,6 +2509,7 @@ async function translate(request, options = {}) {
                 apiKey: providerConfig?.apiKeys || "",
                 model: providerConfig?.selectedModel || "",
                 maxTokens: tokenBudgetForRequest(request),
+                responseShape,
                 timeoutMs: llmTimeoutForRequest(request),
                 signal: options.signal,
                 onTrace: (event) => {
@@ -2472,6 +2571,7 @@ async function translate(request, options = {}) {
                 repairedText = await (0, client_1.callLLM)(repairPrompt, {
                     provider: settings.activeProvider, apiKey: config?.apiKeys || "",
                     model: config?.selectedModel || "", maxTokens: tokenBudgetForRequest(request),
+                    responseShape,
                     timeoutMs: llmTimeoutForRequest(request), signal: options.signal,
                 });
             }
@@ -2523,6 +2623,7 @@ async function translate(request, options = {}) {
                         apiKey: config?.apiKeys || "",
                         model: config?.selectedModel || "",
                         maxTokens: tokenBudgetForRequest(request),
+                        responseShape,
                         timeoutMs: llmTimeoutForRequest(request),
                         signal: options.signal,
                     });
@@ -2605,7 +2706,6 @@ async function translate(request, options = {}) {
     });
     return result;
 }
-
 },
 "src/background/background":function(module,exports,require){
 "use strict";

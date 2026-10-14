@@ -537,6 +537,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LEGACY_COLORS = exports.ACCENTS = void 0;
 exports.resolveAccent = resolveAccent;
 exports.accentForeground = accentForeground;
+exports.accentHover = accentHover;
+exports.accentFocusRing = accentFocusRing;
 exports.applyAccent = applyAccent;
 /** Central palette shared by popup, settings and the content-script Shadow DOM. */
 exports.ACCENTS = [
@@ -563,11 +565,23 @@ function accentForeground(color) {
         .map((n) => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4);
     return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722 > .18 ? "#111827" : "#ffffff";
 }
+/** Derive hover and focus colors from the current accent, never from the old pink theme. */
+function accentHover(color) {
+    const hex = resolveAccent(color);
+    const toHex = (value) => Math.round(value * 0.86).toString(16).padStart(2, "0");
+    return "#" + [1, 3, 5].map((start) => toHex(parseInt(hex.slice(start, start + 2), 16))).join("");
+}
+function accentFocusRing(color) {
+    const hex = resolveAccent(color);
+    const rgb = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.2)`;
+}
 function applyAccent(color, el = document.documentElement) {
     el.style.setProperty("--lp-primary", resolveAccent(color));
     el.style.setProperty("--lp-primary-contrast", accentForeground(color));
+    el.style.setProperty("--lp-primary-hover", accentHover(color));
+    el.style.setProperty("--lp-focus-ring", accentFocusRing(color));
 }
-
 },
 "src/shared/theme":function(module,exports,require){
 "use strict";
